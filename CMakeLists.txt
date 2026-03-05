@@ -4,7 +4,24 @@ cmake_minimum_required(VERSION 3.20)
 # `cmake_path(CONVERT ... TO_NATIVE_PATH_LIST ...)` requires 3.20
 # todo - set this conditionally
 
-project(Sunshine VERSION 0.0.0
+# Auto-detect version from git tag (e.g. v2025.924.154138 → 2025.924.154138)
+# Must be done BEFORE project() so CMake uses the correct version
+find_package(Git QUIET)
+if(GIT_FOUND)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} describe --tags --abbrev=0
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE _GIT_TAG
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    string(REGEX REPLACE "^v" "" _SUNSHINE_VERSION "${_GIT_TAG}")
+endif()
+if(NOT _SUNSHINE_VERSION OR _SUNSHINE_VERSION STREQUAL "")
+    set(_SUNSHINE_VERSION "0.0.0")
+endif()
+
+project(Sunshine VERSION ${_SUNSHINE_VERSION}
         DESCRIPTION "Self-hosted game stream host for Moonlight"
         HOMEPAGE_URL "https://app.lizardbyte.dev/Sunshine")
 
