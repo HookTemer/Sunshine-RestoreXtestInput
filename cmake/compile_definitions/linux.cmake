@@ -162,6 +162,14 @@ if(X11_FOUND)
     list(APPEND PLATFORM_TARGET_FILES
             "${CMAKE_SOURCE_DIR}/src/platform/linux/x11grab.h"
             "${CMAKE_SOURCE_DIR}/src/platform/linux/x11grab.cpp")
+
+    # XTest (libXtst) — required for XTest input fallback when uinput is unavailable
+    if(X11_XTest_FOUND)
+        message(STATUS "libXtst found — XTest input fallback enabled")
+        list(APPEND PLATFORM_LIBRARIES ${X11_XTest_LIB})
+    else()
+        message(WARNING "libXtst not found — XTest input fallback will not be available")
+    endif()
 endif()
 
 if(NOT ${CUDA_FOUND}

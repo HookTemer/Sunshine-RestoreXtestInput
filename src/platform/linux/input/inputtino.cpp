@@ -22,7 +22,51 @@ using namespace std::literals;
 namespace platf {
 
   input_t input() {
-    return {new input_raw_t()};
+    auto raw = new input_raw_t();
+
+    bool has_uinput = raw->mouse && raw->keyboard;
+
+    if (!has_uinput) {
+      if (!raw->mouse) {
+        BOOST_LOG(warning) << "Virtual mouse (uinput) creation failed: "sv << raw->mouse.getErrorMessage();
+      }
+      if (!raw->keyboard) {
+        BOOST_LOG(warning) << "Virtual keyboard (uinput) creation failed: "sv << raw->keyboard.getErrorMessage();
+      }
+      BOOST_LOG(warning) << "/dev/uinput not available — checking for Xorg display to use XTest fallback..."sv;
+
+#ifdef SUNSHINE_BUILD_X11
+      const char *display_env = getenv("DISPLAY");
+      if (display_env) {
+        BOOST_LOG(info) << "Found DISPLAY="sv << display_env << " — attempting XTest fallback"sv;
+      } else {
+        BOOST_LOG(warning) << "DISPLAY env not set, trying :99..."sv;
+      }
+
+      x11::InitThreads();
+      raw->display = x11::OpenDisplay(display_env ? display_env : ":99");
+      if (!raw->display) {
+        BOOST_LOG(fatal)
+          << "XTest fallback failed: could not connect to Xorg display. "
+             "Is Xorg running on DISPLAY="sv << (display_env ? display_env : ":99");
+      } else {
+        BOOST_LOG(info)
+          << "Xorg display found — XTest fallback active"sv;
+        BOOST_LOG(info)
+          << "Input method: XTest (mouse + keyboard via libXtst, no uinput required)"sv;
+        BOOST_LOG(warning)
+          << "Note: gamepad input is NOT available without /dev/uinput"sv;
+      }
+#else
+      BOOST_LOG(fatal)
+        << "Unable to create virtual input devices! "
+           "Sunshine was built without X11 support so no XTest fallback is available."sv;
+#endif
+    } else {
+      BOOST_LOG(info) << "inputtino (uinput) input devices created successfully"sv;
+    }
+
+    return { raw };
   }
 
   std::unique_ptr<client_input_t> allocate_client_input_context(input_t &input) {
@@ -111,10 +155,8 @@ namespace platf {
 
   platform_caps::caps_t get_capabilities() {
     platform_caps::caps_t caps = 0;
-    // TODO: if has_uinput
     caps |= platform_caps::pen_touch;
 
-    // We support controller touchpad input only when emulating the PS5 controller
     if (config::input.gamepad == "ds5"sv || config::input.gamepad == "auto"sv) {
       caps |= platform_caps::controller_touch;
     }
