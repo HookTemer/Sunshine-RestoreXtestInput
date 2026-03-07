@@ -27,43 +27,16 @@ namespace platf {
     bool has_uinput = raw->mouse && raw->keyboard;
 
     if (!has_uinput) {
-      if (!raw->mouse) {
-        BOOST_LOG(warning) << "Virtual mouse (uinput) creation failed: "sv << raw->mouse.getErrorMessage();
-      }
-      if (!raw->keyboard) {
-        BOOST_LOG(warning) << "Virtual keyboard (uinput) creation failed: "sv << raw->keyboard.getErrorMessage();
-      }
-      BOOST_LOG(warning) << "/dev/uinput not available — checking for Xorg display to use XTest fallback..."sv;
-
 #ifdef SUNSHINE_BUILD_X11
-      const char *display_env = getenv("DISPLAY");
-      if (display_env) {
-        BOOST_LOG(info) << "Found DISPLAY="sv << display_env << " — attempting XTest fallback"sv;
-      } else {
-        BOOST_LOG(warning) << "DISPLAY env not set, trying :99..."sv;
-      }
-
+      BOOST_LOG(error) << "Falling back to XTest for virtual input! Are you a member of the 'input' group?"sv;
       x11::InitThreads();
-      raw->display = x11::OpenDisplay(display_env ? display_env : ":99");
+      raw->display = x11::OpenDisplay(nullptr);
       if (!raw->display) {
-        BOOST_LOG(fatal)
-          << "XTest fallback failed: could not connect to Xorg display. "
-             "Is Xorg running on DISPLAY="sv << (display_env ? display_env : ":99");
-      } else {
-        BOOST_LOG(info)
-          << "Xorg display found — XTest fallback active"sv;
-        BOOST_LOG(info)
-          << "Input method: XTest (mouse + keyboard via libXtst, no uinput required)"sv;
-        BOOST_LOG(warning)
-          << "Note: gamepad input is NOT available without /dev/uinput"sv;
+        BOOST_LOG(fatal) << "Unable to create virtual input devices or use XTest fallback! Are you a member of the 'input' group?"sv;
       }
 #else
-      BOOST_LOG(fatal)
-        << "Unable to create virtual input devices! "
-           "Sunshine was built without X11 support so no XTest fallback is available."sv;
+      BOOST_LOG(fatal) << "Unable to create virtual input devices! Are you a member of the 'input' group?"sv;
 #endif
-    } else {
-      BOOST_LOG(info) << "inputtino (uinput) input devices created successfully"sv;
     }
 
     return { raw };
