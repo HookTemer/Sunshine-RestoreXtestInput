@@ -28,11 +28,21 @@ namespace platf {
 
     if (!has_uinput) {
 #ifdef SUNSHINE_BUILD_X11
-      BOOST_LOG(error) << "Falling back to XTest for virtual input! Are you a member of the 'input' group?"sv;
-      x11::InitThreads();
-      raw->display = x11::OpenDisplay(nullptr);
-      if (!raw->display) {
-        BOOST_LOG(fatal) << "Unable to create virtual input devices or use XTest fallback! Are you a member of the 'input' group?"sv;
+      // Check if Xorg is running at all by looking for X11 socket files
+      bool xorg_running = std::filesystem::exists("/tmp/.X11-unix") &&
+                          !std::filesystem::is_empty("/tmp/.X11-unix");
+      if (xorg_running) {
+        const char *display_env = getenv("DISPLAY");
+        if (!display_env) {
+          BOOST_LOG(error) << "Xorg is running but DISPLAY is not set, unable to use XTest fallback"sv;
+        } else {
+          BOOST_LOG(error) << "Falling back to XTest for virtual input! Are you a member of the 'input' group?"sv;
+          x11::InitThreads();
+          raw->display = x11::OpenDisplay(nullptr);
+          if (!raw->display) {
+            BOOST_LOG(fatal) << "Unable to create virtual input devices or use XTest fallback! Are you a member of the 'input' group?"sv;
+          }
+        }
       }
 #else
       BOOST_LOG(fatal) << "Unable to create virtual input devices! Are you a member of the 'input' group?"sv;
